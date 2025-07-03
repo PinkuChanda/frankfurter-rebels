@@ -12,13 +12,17 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertCircle, CheckCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function SectionForm({ params }: { params: { id: string } }) {
   const router = useRouter()
   const isNew = params.id === "new"
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const [section, setSection] = useState({
     page: "",
@@ -90,10 +94,17 @@ export default function SectionForm({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
+    setError(null)
+    setSuccess(null)
 
     try {
+      const updatedSection = { ...section }
+
       // Upload image if selected
       if (imageFile) {
+        setUploading(true)
+        setSuccess("Uploading image...")
+
         const formData = new FormData()
         formData.append("file", imageFile)
         formData.append("folder", "sections")
@@ -108,10 +119,13 @@ export default function SectionForm({ params }: { params: { id: string } }) {
         }
 
         const { url } = await uploadResponse.json()
-        section.image_url = url
+        updatedSection.image_url = url
+        setSuccess("Image uploaded successfully!")
+        setUploading(false)
       }
 
       // Create or update section
+      setSuccess("Saving section...")
       const url = isNew ? "/api/sections" : `/api/sections/${params.id}`
       const method = isNew ? "POST" : "PUT"
 
@@ -120,19 +134,25 @@ export default function SectionForm({ params }: { params: { id: string } }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(section),
+        body: JSON.stringify(updatedSection),
       })
 
       if (!response.ok) {
         throw new Error("Failed to save section")
       }
 
-      // Redirect back to admin dashboard
-      router.push("/cricket")
-      router.refresh()
+      setSuccess("Section saved successfully!")
+
+      // Wait a moment to show success message, then redirect
+      setTimeout(() => {
+        router.push("/cricket/sections")
+        router.refresh()
+      }, 1500)
     } catch (err: any) {
       setError(err.message)
+    } finally {
       setSaving(false)
+      setUploading(false)
     }
   }
 
@@ -147,7 +167,17 @@ export default function SectionForm({ params }: { params: { id: string } }) {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="mb-6 bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
+              </Alert>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -253,7 +283,7 @@ export default function SectionForm({ params }: { params: { id: string } }) {
 
                   <div>
                     <Label htmlFor="image">Section Image</Label>
-                    <Input id="image" type="file" accept="image/*" onChange={handleImageChange} />
+                    <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={uploading} />
                     {imagePreview && (
                       <div className="mt-2">
                         <p className="text-sm mb-1">Preview:</p>
@@ -293,15 +323,20 @@ export default function SectionForm({ params }: { params: { id: string } }) {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => router.push("/cricket")} disabled={saving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/cricket/sections")}
+                  disabled={saving}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploading}
                   className="bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-600 hover:to-red-700"
                 >
-                  {saving ? "Saving..." : "Save Section"}
+                  {saving ? (uploading ? "Uploading..." : "Saving...") : "Save Section"}
                 </Button>
               </div>
             </form>

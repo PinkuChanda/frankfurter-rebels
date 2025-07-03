@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Image from "next/image"
 import { X } from "lucide-react"
 import { SimpleNavigation } from "@/components/simple-navigation"
@@ -18,6 +19,7 @@ interface GalleryImage {
   category: string
   is_active: boolean
   created_at: string
+  season: string
 }
 
 interface Section {
@@ -38,7 +40,10 @@ interface Section {
 
 export default function GalleryPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([])
+  const [allGalleryImages, setAllGalleryImages] = useState<GalleryImage[]>([])
+  const [filteredGalleryImages, setFilteredGalleryImages] = useState<GalleryImage[]>([])
+  const [selectedSeason, setSelectedSeason] = useState<string>("2025")
+  const [availableSeasons, setAvailableSeasons] = useState<string[]>([])
   const [callToActionSection, setCallToActionSection] = useState<Section | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,14 +58,28 @@ export default function GalleryPage() {
         }
         const imagesData = await imagesResponse.json()
 
-        // Filter for active images and sort by created_at
+        // Filter for active images and add default season
         const activeImages = imagesData
           .filter((img: GalleryImage) => img.is_active === true)
+          .map((img: GalleryImage) => ({
+            ...img,
+            season: img.season || "2025",
+          }))
           .sort(
             (a: GalleryImage, b: GalleryImage) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
           )
 
-        setGalleryImages(activeImages)
+        setAllGalleryImages(activeImages)
+
+        // Get unique seasons
+        const seasons = [...new Set(activeImages.map((img: GalleryImage) => img.season))].sort()
+        setAvailableSeasons(seasons)
+
+        // Set current season to the latest available season
+        if (seasons.length > 0) {
+          const latestSeason = seasons[seasons.length - 1]
+          setSelectedSeason(latestSeason)
+        }
 
         // Fetch sections for call-to-action
         try {
@@ -84,8 +103,14 @@ export default function GalleryPage() {
     fetchGalleryData()
   }, [])
 
+  // Filter images by selected season
+  useEffect(() => {
+    const seasonImages = allGalleryImages.filter((img) => img.season === selectedSeason)
+    setFilteredGalleryImages(seasonImages)
+  }, [allGalleryImages, selectedSeason])
+
   // Group images by category
-  const groupedImages = galleryImages.reduce(
+  const groupedImages = filteredGalleryImages.reduce(
     (acc, image) => {
       const category = image.category || "Uncategorized"
       if (!acc[category]) {
@@ -96,6 +121,28 @@ export default function GalleryPage() {
     },
     {} as Record<string, GalleryImage[]>,
   )
+
+  // Helper function to get user-friendly category labels
+  const getCategoryLabel = (category: string): string => {
+    switch (category.toLowerCase()) {
+      case "event":
+        return "Team Events"
+      case "match":
+        return "Match Photos"
+      case "training":
+        return "Training Sessions"
+      case "celebration":
+        return "Celebrations"
+      case "tournament":
+        return "Tournaments"
+      default:
+        // Capitalize first letter of each word for other categories
+        return category
+          .split(" ")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(" ")
+    }
+  }
 
   if (loading) {
     return (
@@ -140,6 +187,29 @@ export default function GalleryPage() {
             Capturing the moments that define our journey - from intense training sessions to memorable victories and
             team celebrations.
           </p>
+
+          {/* Season Filter */}
+          {availableSeasons.length > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <span className="text-white font-medium">Season:</span>
+              <Select value={selectedSeason} onValueChange={setSelectedSeason}>
+                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSeasons.map((season) => (
+                    <SelectItem key={season} value={season}>
+                      {season}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="text-amber-400 text-sm font-medium">
+            {filteredGalleryImages.length} Image{filteredGalleryImages.length !== 1 ? "s" : ""} in {selectedSeason}
+          </div>
         </div>
       </section>
 
@@ -149,7 +219,7 @@ export default function GalleryPage() {
           <section key={categoryIndex} className="px-4 py-16">
             <div className="max-w-7xl mx-auto">
               <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-4">{category}</h2>
+                <h2 className="text-3xl font-bold text-white mb-4">{getCategoryLabel(category)}</h2>
                 <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">{images.length} Photos</Badge>
               </div>
 
@@ -178,6 +248,10 @@ export default function GalleryPage() {
                           <p className="text-sm font-medium">{image.title}</p>
                           {image.description && <p className="text-xs text-gray-300 mt-1">{image.description}</p>}
                         </div>
+                        {/* Season badge */}
+                        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {image.season}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -200,10 +274,9 @@ export default function GalleryPage() {
                   />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">Gallery Coming Soon</h3>
+              <h3 className="text-2xl font-bold text-white mb-4">No Images Found</h3>
               <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
-                We're currently building our gallery to showcase the amazing moments from our cricket journey. Check
-                back soon to see our training sessions, matches, and team celebrations!
+                No images found for the {selectedSeason} season. Check back soon or try a different season!
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button

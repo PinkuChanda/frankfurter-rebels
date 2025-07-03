@@ -1,17 +1,26 @@
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = createServerSupabaseClient()
+    const { searchParams } = new URL(request.url)
+    const season = searchParams.get("season")
 
-    const { data: gallery, error } = await supabase.from("gallery").select("*").order("created_at", { ascending: true })
+    let query = supabase.from("gallery").select("*")
+
+    if (season) {
+      query = query.eq("season", season)
+    }
+
+    const { data: gallery, error } = await query.order("created_at", { ascending: true })
 
     if (error) {
       console.error("Gallery fetch error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log("Gallery data fetched:", gallery?.length || 0, "items")
     return NextResponse.json(gallery || [])
   } catch (error) {
     console.error("Gallery API error:", error)
@@ -26,14 +35,20 @@ export async function POST(request: Request) {
 
     console.log("Gallery POST request body:", body)
 
+    // Validate required fields
+    if (!body.title || !body.image_url) {
+      return NextResponse.json({ error: "Title and image URL are required" }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from("gallery")
       .insert([
         {
-          title: body.title || "",
+          title: body.title,
           description: body.description || "",
-          image_url: body.image_url || "",
-          category: body.category || "",
+          image_url: body.image_url,
+          category: body.category || "event",
+          season: body.season || "2025",
           is_active: body.is_active !== undefined ? body.is_active : true,
         },
       ])

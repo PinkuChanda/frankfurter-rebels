@@ -1,64 +1,78 @@
-import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase"
+import { NextResponse } from "next/server"
 
-// GET a specific player
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const supabase = createServerSupabaseClient()
-    const id = params.id
-
-    const { data, error } = await supabase.from("players").select("*").eq("id", id).single()
+    const { data, error } = await supabase.from("players").select("*").eq("id", params.id).single()
 
     if (error) {
+      console.error("Player fetch error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    if (!data) {
-      return NextResponse.json({ error: "Player not found" }, { status: 404 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch player" }, { status: 500 })
+    console.error("Player API error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// UPDATE a player
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
     const supabase = createServerSupabaseClient()
-    const id = params.id
-    const updates = await request.json()
+    const body = await request.json()
 
-    // Add updated_at timestamp
-    updates.updated_at = new Date().toISOString()
+    console.log("Player PUT request body:", body)
 
-    const { data, error } = await supabase.from("players").update(updates).eq("id", id).select()
+    const { data, error } = await supabase
+      .from("players")
+      .update({
+        name: body.name,
+        role: body.role,
+        image_url: body.image_url || "",
+        experience: body.experience || "",
+        description: body.description || "",
+        is_owner: Boolean(body.is_owner),
+        owner_title: body.owner_title || "",
+        is_captain: Boolean(body.is_captain),
+        is_management: Boolean(body.is_management),
+        management_role: body.management_role || "",
+        matches: Number(body.matches) || 0,
+        runs: Number(body.runs) || 0,
+        wickets: Number(body.wickets) || 0,
+        season: body.season || "2025",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.id)
+      .select()
 
     if (error) {
+      console.error("Player update error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log("Player update success:", data)
     return NextResponse.json(data[0])
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update player" }, { status: 500 })
+    console.error("Player PUT error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// DELETE a player
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     const supabase = createServerSupabaseClient()
-    const id = params.id
-
-    const { error } = await supabase.from("players").delete().eq("id", id)
+    const { error } = await supabase.from("players").delete().eq("id", params.id)
 
     if (error) {
+      console.error("Player delete error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ message: "Player deleted successfully" })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete player" }, { status: 500 })
+    console.error("Player DELETE error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

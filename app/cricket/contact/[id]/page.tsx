@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertCircle, CheckCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function ContactForm({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -15,6 +17,7 @@ export default function ContactForm({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const [contactInfo, setContactInfo] = useState({
     type: "",
@@ -69,8 +72,12 @@ export default function ContactForm({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
+    setError(null)
+    setSuccess(null)
 
     try {
+      setSuccess("Saving contact info...")
+
       // Create or update contact info
       const url = isNew ? "/api/contact-info" : `/api/contact-info/${params.id}`
       const method = isNew ? "POST" : "PUT"
@@ -87,11 +94,16 @@ export default function ContactForm({ params }: { params: { id: string } }) {
         throw new Error("Failed to save contact info")
       }
 
-      // Redirect back to admin dashboard
-      router.push("/cricket")
-      router.refresh()
+      setSuccess("Contact info saved successfully!")
+
+      // Wait a moment to show success message, then redirect
+      setTimeout(() => {
+        router.push("/cricket/contact")
+        router.refresh()
+      }, 1500)
     } catch (err: any) {
       setError(err.message)
+    } finally {
       setSaving(false)
     }
   }
@@ -107,7 +119,17 @@ export default function ContactForm({ params }: { params: { id: string } }) {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="mb-6 bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
+              </Alert>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -203,7 +225,12 @@ export default function ContactForm({ params }: { params: { id: string } }) {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => router.push("/cricket")} disabled={saving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/cricket/contact")}
+                  disabled={saving}
+                >
                   Cancel
                 </Button>
                 <Button

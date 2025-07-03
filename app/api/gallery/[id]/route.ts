@@ -4,17 +4,16 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const supabase = createServerSupabaseClient()
-
     const { data, error } = await supabase.from("gallery").select("*").eq("id", params.id).single()
 
     if (error) {
-      console.error("Gallery fetch error:", error)
+      console.error("Gallery item fetch error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error("Gallery API error:", error)
+    console.error("Gallery item API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -29,10 +28,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const { data, error } = await supabase
       .from("gallery")
       .update({
-        title: body.title || "",
+        title: body.title,
         description: body.description || "",
-        image_url: body.image_url || "",
-        category: body.category || "",
+        image_url: body.image_url,
+        category: body.category || "event",
+        season: body.season || "2025",
         is_active: body.is_active !== undefined ? body.is_active : true,
       })
       .eq("id", params.id)
@@ -54,7 +54,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     const supabase = createServerSupabaseClient()
-
     const { error } = await supabase.from("gallery").delete().eq("id", params.id)
 
     if (error) {

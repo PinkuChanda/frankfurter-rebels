@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Crown, Flag, User } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Image from "next/image"
 import { SimpleNavigation } from "@/components/simple-navigation"
 import { Footer } from "@/components/footer"
@@ -23,15 +24,13 @@ interface Player {
   wickets: number
   is_management?: boolean
   management_role?: string
+  season: string
 }
 
 // Component for handling image with fallback
 function PlayerImage({ src, alt, className }: { src: string; alt: string; className: string }) {
-  // Function to check if URL is safe to load
   const isSafeImageUrl = (url: string): boolean => {
     if (!url || typeof url !== "string" || url.trim() === "") return false
-
-    // Block all problematic URL patterns
     const blockedPatterns = [
       "blob:",
       "vusercontent.net",
@@ -42,12 +41,10 @@ function PlayerImage({ src, alt, className }: { src: string; alt: string; classN
       "chrome:",
       "about:",
     ]
-
     const lowerUrl = url.toLowerCase()
     return !blockedPatterns.some((pattern) => lowerUrl.includes(pattern))
   }
 
-  // Determine if we should show placeholder
   const shouldShowPlaceholder = !isSafeImageUrl(src)
 
   if (shouldShowPlaceholder) {
@@ -72,7 +69,6 @@ function PlayerImage({ src, alt, className }: { src: string; alt: string; classN
         height={300}
         className={className}
         onError={(e) => {
-          // Replace with placeholder on error
           const target = e.target as HTMLImageElement
           target.style.display = "none"
           const parent = target.parentElement
@@ -96,7 +92,10 @@ function PlayerImage({ src, alt, className }: { src: string; alt: string; classN
 }
 
 export default function TeamPage() {
-  const [players, setPlayers] = useState<Player[]>([])
+  const [allPlayers, setAllPlayers] = useState<Player[]>([])
+  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([])
+  const [selectedSeason, setSelectedSeason] = useState<string>("2025")
+  const [availableSeasons, setAvailableSeasons] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [management, setManagement] = useState<Player[]>([])
@@ -122,7 +121,7 @@ export default function TeamPage() {
             return true
           })
           .map((player: any) => {
-            // Clean the image URL - if it's problematic, set to empty string
+            // Clean the image URL
             let cleanImageUrl = ""
             if (player.image_url && typeof player.image_url === "string") {
               const url = player.image_url.toLowerCase()
@@ -136,12 +135,9 @@ export default function TeamPage() {
               }
             }
 
-            console.log(`Player ${player.name} - Original URL: ${player.image_url}, Clean URL: ${cleanImageUrl}`)
-
             return {
               ...player,
               image_url: cleanImageUrl,
-              // Ensure all required fields have defaults
               role: player.role || "Player",
               description: player.description || "No description available",
               matches: player.matches || 0,
@@ -152,16 +148,22 @@ export default function TeamPage() {
               is_management: Boolean(player.is_management),
               owner_title: player.owner_title || "",
               management_role: player.management_role || "",
+              season: player.season || "2025",
             }
           })
 
         console.log(`Processed ${validPlayers.length} valid players`)
-        setPlayers(validPlayers)
+        setAllPlayers(validPlayers)
 
-        // Filter management staff
-        const managementStaff = validPlayers.filter((player: Player) => player.is_management)
-        console.log(`Found ${managementStaff.length} management staff`)
-        setManagement(managementStaff)
+        // Get unique seasons
+        const seasons = [...new Set(validPlayers.map((player: Player) => player.season))].sort()
+        setAvailableSeasons(seasons)
+
+        // Set current season to the latest available season
+        if (seasons.length > 0) {
+          const latestSeason = seasons[seasons.length - 1]
+          setSelectedSeason(latestSeason)
+        }
       } catch (err: any) {
         console.error("Error fetching players:", err)
         setError(err.message)
@@ -172,6 +174,16 @@ export default function TeamPage() {
 
     fetchPlayers()
   }, [])
+
+  // Filter players by selected season
+  useEffect(() => {
+    const seasonPlayers = allPlayers.filter((player) => player.season === selectedSeason)
+    setFilteredPlayers(seasonPlayers)
+
+    // Filter management staff for the selected season
+    const managementStaff = seasonPlayers.filter((player: Player) => player.is_management)
+    setManagement(managementStaff)
+  }, [allPlayers, selectedSeason])
 
   if (loading) {
     return (
@@ -208,40 +220,6 @@ export default function TeamPage() {
     )
   }
 
-  // Show message if no players found
-  if (players.length === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-slate-900 to-black text-white">
-        <SimpleNavigation />
-
-        <section className="px-4 py-10 pt-40">
-          <div className="max-w-7xl mx-auto text-center space-y-6">
-            <h1 className="text-5xl lg:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-red-500">
-              Our Team
-            </h1>
-            <p className="text-xl text-white/70 max-w-3xl mx-auto">
-              Meet the talented individuals who make up the Frankfurter Rebels.
-            </p>
-          </div>
-        </section>
-
-        <section className="px-4 py-16">
-          <div className="max-w-7xl mx-auto text-center">
-            <div className="bg-white/5 backdrop-blur-sm border-white/10 rounded-2xl p-12">
-              <User className="w-24 h-24 text-slate-400 mx-auto mb-6" />
-              <h3 className="text-2xl font-bold text-white mb-4">Team Coming Soon</h3>
-              <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
-                We're currently building our team roster. Check back soon to meet our amazing players!
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <Footer />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-slate-900 to-black text-white">
       <SimpleNavigation />
@@ -256,8 +234,28 @@ export default function TeamPage() {
             Meet the talented individuals who make up the Frankfurter Rebels. Each player brings unique skills and
             passion to our team.
           </p>
+
+          {/* Season Filter */}
+          {availableSeasons.length > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <span className="text-white font-medium">Season:</span>
+              <Select value={selectedSeason} onValueChange={setSelectedSeason}>
+                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSeasons.map((season) => (
+                    <SelectItem key={season} value={season}>
+                      {season}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="text-amber-400 text-sm font-medium">
-            {players.length} Team Member{players.length !== 1 ? "s" : ""}
+            {filteredPlayers.length} Team Member{filteredPlayers.length !== 1 ? "s" : ""} in {selectedSeason}
           </div>
         </div>
       </section>
@@ -265,80 +263,95 @@ export default function TeamPage() {
       {/* Players Section */}
       <section className="px-4 py-16">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {players
-              .sort((a, b) => {
-                // Sort by: Owner first, then Co-Owner, then Captain, then others
-                if (a.is_owner && a.owner_title?.includes("Owner") && !a.owner_title?.includes("Co")) return -1
-                if (b.is_owner && b.owner_title?.includes("Owner") && !b.owner_title?.includes("Co")) return 1
-                if (a.is_owner && a.owner_title?.includes("Co-Owner")) return -1
-                if (b.is_owner && b.owner_title?.includes("Co-Owner")) return 1
-                if (a.is_captain) return -1
-                if (b.is_captain) return 1
-                return 0
-              })
-              .map((player) => (
-                <Card
-                  key={player.id}
-                  className={`bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-300 group ${
-                    player.is_owner ? "ring-2 ring-amber-500/50" : ""
-                  }`}
-                >
-                  <CardContent className="p-6 space-y-4">
-                    <div className="relative">
-                      <PlayerImage
-                        src={player.image_url}
-                        alt={player.name}
-                        className="w-full h-48 object-cover rounded-xl"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-xl" />
+          {filteredPlayers.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredPlayers
+                .sort((a, b) => {
+                  // Sort by: Owner first, then Co-Owner, then Captain, then others
+                  if (a.is_owner && a.owner_title?.includes("Owner") && !a.owner_title?.includes("Co")) return -1
+                  if (b.is_owner && b.owner_title?.includes("Owner") && !b.owner_title?.includes("Co")) return 1
+                  if (a.is_owner && a.owner_title?.includes("Co-Owner")) return -1
+                  if (b.is_owner && b.owner_title?.includes("Co-Owner")) return 1
+                  if (a.is_captain) return -1
+                  if (b.is_captain) return 1
+                  return 0
+                })
+                .map((player) => (
+                  <Card
+                    key={player.id}
+                    className={`bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-300 group ${
+                      player.is_owner ? "ring-2 ring-amber-500/50" : ""
+                    }`}
+                  >
+                    <CardContent className="p-6 space-y-4">
+                      <div className="relative">
+                        <PlayerImage
+                          src={player.image_url}
+                          alt={player.name}
+                          className="w-full h-48 object-cover rounded-xl"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-xl" />
 
-                      {/* Owner badge */}
-                      {player.is_owner && (
-                        <div className="absolute top-3 right-3 bg-gradient-to-r from-amber-500 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-xl transform -rotate-3 flex items-center gap-1 animate-pulse-slow">
-                          <Crown className="w-3 h-3" />
-                          {player.owner_title || "Owner"}
-                        </div>
-                      )}
+                        {/* Owner badge */}
+                        {player.is_owner && (
+                          <div className="absolute top-3 right-3 bg-gradient-to-r from-amber-500 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-xl transform -rotate-3 flex items-center gap-1 animate-pulse-slow">
+                            <Crown className="w-3 h-3" />
+                            {player.owner_title || "Owner"}
+                          </div>
+                        )}
 
-                      {/* Captain badge */}
-                      {player.is_captain && !player.is_owner && (
-                        <div className="absolute top-3 right-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-xl transform -rotate-3 flex items-center gap-1">
-                          <Flag className="w-3 h-3" />
-                          Captain
+                        {/* Captain badge */}
+                        {player.is_captain && !player.is_owner && (
+                          <div className="absolute top-3 right-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-xl transform -rotate-3 flex items-center gap-1">
+                            <Flag className="w-3 h-3" />
+                            Captain
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">
+                          {player.name}
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="secondary" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                            {player.role}
+                          </Badge>
+                          <Badge variant="outline" className="border-white/20 text-white/70 text-xs">
+                            {player.season}
+                          </Badge>
                         </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">
-                        {player.name}
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
-                          {player.role}
-                        </Badge>
                       </div>
-                    </div>
-                    <p className="text-sm text-white/70">{player.description}</p>
-                    {/* Player Stats */}
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-white/70 mt-2">
-                      <div>
-                        <span className="block font-bold text-white">{player.matches}</span>
-                        <span className="block">Matches</span>
+                      <p className="text-sm text-white/70">{player.description}</p>
+                      {/* Player Stats */}
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs text-white/70 mt-2">
+                        <div>
+                          <span className="block font-bold text-white">{player.matches}</span>
+                          <span className="block">Matches</span>
+                        </div>
+                        <div>
+                          <span className="block font-bold text-white">{player.runs}</span>
+                          <span className="block">Runs</span>
+                        </div>
+                        <div>
+                          <span className="block font-bold text-white">{player.wickets}</span>
+                          <span className="block">Wickets</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="block font-bold text-white">{player.runs}</span>
-                        <span className="block">Runs</span>
-                      </div>
-                      <div>
-                        <span className="block font-bold text-white">{player.wickets}</span>
-                        <span className="block">Wickets</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="bg-white/5 backdrop-blur-sm border-white/10 rounded-2xl p-12">
+                <User className="w-24 h-24 text-slate-400 mx-auto mb-6" />
+                <h3 className="text-2xl font-bold text-white mb-4">No Players Found</h3>
+                <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
+                  No players found for the {selectedSeason} season. Check back soon or try a different season!
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -346,7 +359,9 @@ export default function TeamPage() {
       {management.length > 0 && (
         <section className="px-4 py-16 bg-black/20 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-3xl font-bold text-white mb-12 text-center">Management & Support Staff</h2>
+            <h2 className="text-3xl font-bold text-white mb-12 text-center">
+              Management & Support Staff - {selectedSeason}
+            </h2>
             <div className="grid md:grid-cols-3 gap-8">
               {management.map((member) => (
                 <Card

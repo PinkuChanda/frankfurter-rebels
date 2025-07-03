@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function PlayerForm({ params }: { params: { id: string } }) {
@@ -22,7 +22,7 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const [player, setPlayer] = useState({
     name: "",
@@ -38,6 +38,7 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
     matches: 0,
     runs: 0,
     wickets: 0,
+    season: "2025",
   })
 
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -101,6 +102,7 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    setSuccess(null)
 
     try {
       const updatedPlayer = { ...player }
@@ -108,7 +110,7 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
       // Upload image if selected
       if (imageFile) {
         setUploading(true)
-        setUploadStatus("Uploading image...")
+        setSuccess("Uploading image...")
 
         console.log("Starting image upload:", {
           fileName: imageFile.name,
@@ -145,12 +147,12 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
         console.log("Upload success:", uploadResult)
 
         updatedPlayer.image_url = uploadResult.url
-        setUploadStatus("Image uploaded successfully!")
+        setSuccess("Image uploaded successfully!")
         setUploading(false)
       }
 
       // Create or update player
-      setUploadStatus("Saving player data...")
+      setSuccess("Saving player data...")
       const url = isNew ? "/api/players" : `/api/players/${params.id}`
       const method = isNew ? "POST" : "PUT"
 
@@ -177,16 +179,19 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
       }
 
       console.log("Player saved successfully")
+      setSuccess("Player saved successfully!")
 
-      // Redirect back to admin dashboard
-      router.push("/cricket")
-      router.refresh()
+      // Wait a moment to show success message, then redirect
+      setTimeout(() => {
+        router.push("/cricket/players")
+        router.refresh()
+      }, 1500)
     } catch (err: any) {
       console.error("Error saving player:", err)
       setError(err.message)
+    } finally {
       setSaving(false)
       setUploading(false)
-      setUploadStatus(null)
     }
   }
 
@@ -206,9 +211,10 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
             </Alert>
           )}
 
-          {uploadStatus && (
-            <Alert className="mb-6 bg-blue-50">
-              <AlertDescription>{uploadStatus}</AlertDescription>
+          {success && (
+            <Alert className="mb-6 bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
             </Alert>
           )}
 
@@ -242,6 +248,21 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
                     value={player.experience}
                     onChange={(e) => setPlayer({ ...player, experience: e.target.value })}
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="season">Season</Label>
+                  <Select value={player.season} onValueChange={(value) => setPlayer({ ...player, season: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select season" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                      <SelectItem value="2027">2027</SelectItem>
+                      <SelectItem value="2028">2028</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-4">
@@ -383,11 +404,11 @@ export default function PlayerForm({ params }: { params: { id: string } }) {
             </div>
 
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => router.push("/cricket")} disabled={saving}>
+              <Button type="button" variant="outline" onClick={() => router.push("/cricket/players")} disabled={saving}>
                 Cancel
               </Button>
               <Button type="submit" disabled={saving || uploading}>
-                {saving ? "Saving..." : uploading ? "Uploading..." : "Save Player"}
+                {saving ? (uploading ? "Uploading..." : "Saving...") : "Save Player"}
               </Button>
             </div>
           </form>

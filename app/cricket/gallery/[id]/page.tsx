@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function GalleryForm({ params }: { params: { id: string } }) {
@@ -22,7 +22,7 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const [image, setImage] = useState({
     title: "",
@@ -30,6 +30,7 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
     image_url: "",
     category: "",
     is_active: true,
+    season: "2025",
   })
 
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -100,6 +101,7 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    setSuccess(null)
 
     try {
       const updatedImage = { ...image }
@@ -107,7 +109,7 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
       // Upload image if selected
       if (imageFile) {
         setUploading(true)
-        setUploadStatus("Uploading image...")
+        setSuccess("Uploading image...")
 
         console.log("Starting image upload:", {
           fileName: imageFile.name,
@@ -144,12 +146,12 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
         console.log("Upload success:", uploadResult)
 
         updatedImage.image_url = uploadResult.url
-        setUploadStatus("Image uploaded successfully!")
+        setSuccess("Image uploaded successfully!")
         setUploading(false)
       }
 
       // Create or update image
-      setUploadStatus("Saving gallery image...")
+      setSuccess("Saving gallery image...")
       const url = isNew ? "/api/gallery" : `/api/gallery/${params.id}`
       const method = isNew ? "POST" : "PUT"
 
@@ -176,16 +178,19 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
       }
 
       console.log("Gallery image saved successfully")
+      setSuccess("Gallery image saved successfully!")
 
-      // Redirect back to admin dashboard
-      router.push("/cricket")
-      router.refresh()
+      // Wait a moment to show success message, then redirect
+      setTimeout(() => {
+        router.push("/cricket/gallery")
+        router.refresh()
+      }, 1500)
     } catch (err: any) {
       console.error("Error saving gallery image:", err)
       setError(err.message)
+    } finally {
       setSaving(false)
       setUploading(false)
-      setUploadStatus(null)
     }
   }
 
@@ -206,9 +211,10 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
               </Alert>
             )}
 
-            {uploadStatus && (
-              <Alert className="mb-6 bg-blue-50">
-                <AlertDescription>{uploadStatus}</AlertDescription>
+            {success && (
+              <Alert className="mb-6 bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{success}</AlertDescription>
               </Alert>
             )}
 
@@ -235,6 +241,21 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
                         {category.label}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="season">Season</Label>
+                <Select value={image.season} onValueChange={(value) => setImage({ ...image, season: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select season" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2026">2026</SelectItem>
+                    <SelectItem value="2027">2027</SelectItem>
+                    <SelectItem value="2028">2028</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -280,7 +301,12 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => router.push("/cricket")} disabled={saving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/cricket/gallery")}
+                  disabled={saving}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -288,7 +314,7 @@ export default function GalleryForm({ params }: { params: { id: string } }) {
                   disabled={saving || uploading}
                   className="bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-600 hover:to-red-700"
                 >
-                  {saving ? "Saving..." : uploading ? "Uploading..." : "Save Image"}
+                  {saving ? (uploading ? "Uploading..." : "Saving...") : "Save Image"}
                 </Button>
               </div>
             </form>
